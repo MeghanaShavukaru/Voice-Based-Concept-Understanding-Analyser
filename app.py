@@ -1,15 +1,20 @@
 import streamlit as st
 import json
-import os
+from pathlib import Path
 from intelligence import *
 from reporting import generate_pdf_report
 
+BASE_DIR = Path(__file__).resolve().parent
+TEMP_DIR = BASE_DIR / "temp"
+REFERENCES_PATH = BASE_DIR / "references.json"
+
 # Setup Temp Directory
-if not os.path.exists("temp"):
-    os.makedirs("temp")
+if TEMP_DIR.exists() and not TEMP_DIR.is_dir():
+    TEMP_DIR.unlink()
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 # Load Reference Data
-with open("references.json", "r") as f:
+with open(REFERENCES_PATH, "r") as f:
     references = json.load(f)
 
 st.set_page_config(page_title="VBCUA System", layout="wide")
@@ -25,11 +30,11 @@ uploaded_file = st.file_uploader("Upload your audio explanation (WAV/MP3)", type
 
 if uploaded_file is not None:
     # Save file temporarily
-    audio_path = os.path.join("temp", uploaded_file.name)
+    audio_path = TEMP_DIR / uploaded_file.name
     with open(audio_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
         
-    st.audio(audio_path, format="audio/wav")
+    st.audio(str(audio_path), format="audio/wav")
     
     if st.button("Evaluate Performance"):
         with st.spinner("Analyzing audio and semantics... This may take a minute."):
@@ -41,7 +46,7 @@ if uploaded_file is not None:
             semantic_score = analyze_semantics(transcript, references[topic])
             
             # 3. Audio & Fluency Features
-            plot_path = os.path.join("temp", "waveform.png")
+            plot_path = TEMP_DIR / "waveform.png"
             rms_energy, pause_ratio = analyze_audio_features(audio_path, plot_path)
             filler_count, filler_ratio = analyze_filler_words(transcript)
             
@@ -69,7 +74,7 @@ if uploaded_file is not None:
             st.image(plot_path)
             
             # 5. Report Generation
-            report_path = os.path.join("temp", "Evaluation_Report.pdf")
+            report_path = TEMP_DIR / "Evaluation_Report.pdf"
             generate_pdf_report(
                 report_path, transcript, semantic_score, pause_ratio, 
                 filler_ratio, rms_energy, final_score, feedback, plot_path
